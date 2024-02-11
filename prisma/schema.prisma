@@ -21,12 +21,13 @@ model Chats {
   history ChatHistory[] 
 }
 
+
 model ChatHistory {
   id     Int    @id @default(autoincrement())
-  chatId Int   
+  chat   Chats  @relation(fields: [chatId], references: [chatId])
+  chatId String
   role   String
-  parts  String
-  chat   Chats  @relation(fields: [chatId], references: [id])
+  parts  String @db.VarChar(2048)
 
   @@index([chatId], name: "idx_chat_history_chat_id")
 }
