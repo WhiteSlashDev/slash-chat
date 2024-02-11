@@ -1,0 +1,32 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url = env("DATABASE_URL")
+  relationMode = "prisma"
+}
+
+model SAiChat {
+  id Int @id @default(autoincrement())
+  guildId String @unique
+  forumId String
+}
+
+model Chats {
+  id      Int          @id @default(autoincrement())
+  guildId String
+  chatId  String       @unique
+  history ChatHistory[] 
+}
+
+model ChatHistory {
+  id     Int    @id @default(autoincrement())
+  chatId Int   
+  role   String
+  parts  String
+  chat   Chats  @relation(fields: [chatId], references: [id])
+
+  @@index([chatId], name: "idx_chat_history_chat_id")
+}
