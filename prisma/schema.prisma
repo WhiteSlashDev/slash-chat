@@ -28,6 +28,7 @@ model ChatHistory {
   chatId String
   role   String
   parts  String @db.VarChar(2048)
+  createdAt DateTime   @default(now())
 
   @@index([chatId], name: "idx_chat_history_chat_id")
 }

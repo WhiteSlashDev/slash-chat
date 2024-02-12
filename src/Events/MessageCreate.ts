@@ -76,7 +76,7 @@ export class MessageCreate extends BaseModule {
           content: `Your name is ${Utility.client.user.displayName} discord bot and you exist to entertain or help people. you're not allowed to send NSFW stuffs and lasty you don't use too much emoji. You need to talk only in Russian lang.`,
           role: "system",
         },
-        ...(await this.GetAllChatHistory(chatId)),
+        ...(await this.GetAllChatHistory(chatId, 10)),
       ],
       stream: false,
       max_tokens: 1024,
@@ -122,13 +122,17 @@ export class MessageCreate extends BaseModule {
     });
   }
 
-  public async GetAllChatHistory(chatId: string) {
+  public async GetAllChatHistory(chatId: string, amount: number) {
     const histories: ChatHistory[] = await Utility.prisma.chatHistory.findMany({
       where: {
         chat: {
           chatId: chatId,
         },
       },
+      orderBy: {
+        createdAt: "desc",
+      },
+      take: amount,
     });
 
     return histories.map(({ parts, role }) => ({
