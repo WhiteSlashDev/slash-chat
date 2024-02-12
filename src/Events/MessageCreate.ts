@@ -1,10 +1,18 @@
 import { RecipleModuleLoadData } from "reciple";
 import { BaseModule } from "../BaseModule.js";
 import Utility from "../Utils/Utility.js";
-import { BaseMessageOptions, EmbedBuilder, Message } from "discord.js";
+import {
+  AnyThreadChannel,
+  BaseMessageOptions,
+  CategoryChannel,
+  EmbedBuilder,
+  GuildBasedChannel,
+  Message,
+  MessageType,
+  ThreadChannel,
+} from "discord.js";
 import axios from "axios";
-import { ChatHistory } from "@prisma/client";
-import { IncomingMessage } from "http";
+import lodash from "lodash";
 
 export class MessageCreate extends BaseModule {
   public async onStart(): Promise<boolean> {
@@ -61,8 +69,6 @@ export class MessageCreate extends BaseModule {
     embed: EmbedBuilder,
     chatId: string
   ) {
-    await this.addChatHistory(chatId, "user", input);
-
     const url = `https://api.nvcf.nvidia.com/v2/nvcf/pexec/functions/0e349b44-440a-44e1-93e9-abe8dcb27158`;
     const headers = {
       Authorization: `Bearer ${process.env.NVIDIA_API_KEY || ""}`,
@@ -76,7 +82,13 @@ export class MessageCreate extends BaseModule {
           content: `Your name is ${Utility.client.user.displayName} discord bot and you exist to entertain or help people. you're not allowed to send NSFW stuffs and lasty you don't use too much emoji. You need to talk only in Russian lang. You're was created by WhiteSlash.`,
           role: "system",
         },
-        ...(await this.GetAllChatHistory(chatId, 10)),
+        ...(await this.fetchPreviousResponses(chatId, {
+          limit: 5,
+        })),
+        {
+          content: input,
+          role: "user",
+        },
       ],
       stream: false,
       max_tokens: 1024,
@@ -99,12 +111,6 @@ export class MessageCreate extends BaseModule {
       );
     }
 
-    await this.addChatHistory(
-      chatId,
-      "assistant",
-      response.data.choices[0].message.content
-    );
-
     embed.setDescription(response.data.choices[0].message.content);
 
     await message.edit({
@@ -112,33 +118,41 @@ export class MessageCreate extends BaseModule {
     });
   }
 
-  public async addChatHistory(chatId: string, role: string, parts: string) {
-    await Utility.prisma.chatHistory.create({
-      data: {
-        chat: { connect: { chatId } },
-        role,
-        parts,
-      },
-    });
-  }
+  public async fetchPreviousResponses(
+    channelId: string,
+    options: { before?: Message; userId?: string; limit?: number } = {}
+  ) {
+    const { before, userId, limit } = options;
 
-  public async GetAllChatHistory(chatId: string, amount: number) {
-    const histories: ChatHistory[] = await Utility.prisma.chatHistory.findMany({
-      where: {
-        chat: {
-          chatId: chatId,
-        },
-      },
-      orderBy: {
-        createdAt: "desc",
-      },
-      take: amount,
-    });
+    const channel = Utility.client.channels.cache.get(channelId);
+    if (!channel || !channel.isThread()) {
+      return [];
+    }
 
-    return histories.map(({ parts, role }) => ({
-      content: parts,
-      role,
-    }));
+    try {
+      const messages = await channel.messages.fetch({
+        limit,
+        before: before?.id,
+      });
+      if (!messages?.size) return [];
+
+      const responses = messages
+        .sort((a, b) => a.createdTimestamp - b.createdTimestamp)
+        .map((m) => {
+          if (m.author.id === Utility.client.user.id) {
+            const assistant = m.embeds[0]?.description;
+            return { content: assistant?.trim(), role: "assistant" };
+          } else {
+            return { content: m.content, role: "user" };
+          }
+        })
+        .filter((response) => response !== null);
+
+      return responses;
+    } catch (error) {
+      console.error("Error fetching messages:", error);
+      return [];
+    }
   }
 }
 

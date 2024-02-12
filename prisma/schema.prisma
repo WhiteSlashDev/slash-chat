@@ -13,22 +13,3 @@ model SAiChat {
   guildId String @unique
   forumId String
 }
-
-model Chats {
-  id      Int          @id @default(autoincrement())
-  guildId String
-  chatId  String       @unique
-  history ChatHistory[] 
-}
-
-
-model ChatHistory {
-  id     Int    @id @default(autoincrement())
-  chat   Chats  @relation(fields: [chatId], references: [chatId])
-  chatId String
-  role   String
-  parts  String @db.VarChar(2048)
-  createdAt DateTime   @default(now())
-
-  @@index([chatId], name: "idx_chat_history_chat_id")
-}

@@ -15,6 +15,7 @@
     "axios": "^1.6.7",
     "discord.js": "^14.14.1",
     "https-proxy-agent": "^7.0.2",
+    "lodash": "^4.17.21",
     "prisma": "^5.9.1",
     "reciple": "^8.3.1",
     "reciple-anticrash": "2",
@@ -23,6 +24,7 @@
     "reciple-registry-cache": "2"
   },
   "devDependencies": {
+    "@types/lodash": "^4.14.202",
     "@types/node": "^20.10.4",
     "nodemon": "^3.0.2",
     "rimraf": "^5.0.5",
