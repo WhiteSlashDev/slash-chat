@@ -73,7 +73,7 @@ export class MessageCreate extends BaseModule {
     const payload = {
       messages: [
         {
-          content: `Your name is ${Utility.client.user.displayName} discord bot and you exist to entertain or help people. you're not allowed to send NSFW stuffs and lasty you don't use too much emoji. You need to talk only in Russian lang.`,
+          content: `Your name is ${Utility.client.user.displayName} discord bot and you exist to entertain or help people. you're not allowed to send NSFW stuffs and lasty you don't use too much emoji. You need to talk only in Russian lang. You're was created by WhiteSlash.`,
           role: "system",
         },
         ...(await this.GetAllChatHistory(chatId, 10)),
