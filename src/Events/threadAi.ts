@@ -1,20 +1,11 @@
 import { RecipleModuleLoadData } from "reciple";
 import { BaseModule } from "../BaseModule.js";
 import Utility from "../Utils/Utility.js";
-import {
-  AnyThreadChannel,
-  BaseMessageOptions,
-  CategoryChannel,
-  EmbedBuilder,
-  GuildBasedChannel,
-  Message,
-  MessageType,
-  ThreadChannel,
-} from "discord.js";
-import axios from "axios";
-import lodash from "lodash";
+import { EmbedBuilder, Message } from "discord.js";
+import { GoogleGenerativeAI } from "@google/generative-ai";
+const genAI = new GoogleGenerativeAI(process.env?.GEMINI_API_KEY || "");
 
-export class MessageCreate extends BaseModule {
+export class threadAi extends BaseModule {
   public async onStart(): Promise<boolean> {
     return true;
   }
@@ -49,12 +40,8 @@ export class MessageCreate extends BaseModule {
           })
           .setTimestamp();
 
-        const response = await message.reply({
-          embeds: [embed],
-        });
-
         await this.CreateApiResponse(
-          response,
+          message,
           message.content,
           embed,
           message.channel.id
@@ -69,51 +56,27 @@ export class MessageCreate extends BaseModule {
     embed: EmbedBuilder,
     chatId: string
   ) {
-    const url = `https://api.nvcf.nvidia.com/v2/nvcf/pexec/functions/0e349b44-440a-44e1-93e9-abe8dcb27158`;
-    const headers = {
-      Authorization: `Bearer ${process.env.NVIDIA_API_KEY || ""}`,
-      Accept: "application/json",
-      "Content-Type": "application/json",
-    };
+    const model = genAI.getGenerativeModel({ model: "gemini-pro" });
 
-    const payload = {
-      messages: [
-        {
-          content: `Your name is ${Utility.client.user.displayName} discord bot and you exist to entertain or help people. you're not allowed to send NSFW stuffs and lasty you don't use too much emoji. You need to talk only in Russian lang. You're was created by WhiteSlash.`,
-          role: "system",
-        },
+    const chat = model.startChat({
+      history: [
         ...(await this.fetchPreviousResponses(chatId, {
-          limit: 5,
+          limit: 20,
+          before: message,
         })),
-        {
-          content: input,
-          role: "user",
-        },
       ],
-      stream: false,
-      max_tokens: 1024,
-    };
-
-    let response = await axios.post(url, payload, {
-      headers,
+      generationConfig: {
+        maxOutputTokens: 2048,
+      },
     });
 
-    while (response.status === 202) {
-      let requestId = response.headers["nvcf-reqid"];
-      let fetchUrl =
-        "https://api.nvcf.nvidia.com/v2/nvcf/pexec/status/" + requestId;
-      response = await axios.get(fetchUrl, { headers: headers });
-    }
+    const result = await chat.sendMessage(input);
+    const response = result.response;
+    const text = response.text();
 
-    if (response.status !== 200) {
-      throw new Error(
-        `invocation failed with status ${response.status} ${response.data}`
-      );
-    }
+    embed.setDescription(text);
 
-    embed.setDescription(response.data.choices[0].message.content);
-
-    await message.edit({
+    await message.reply({
       embeds: [embed],
     });
   }
@@ -139,14 +102,14 @@ export class MessageCreate extends BaseModule {
       const responses = messages
         .sort((a, b) => a.createdTimestamp - b.createdTimestamp)
         .map((m) => {
-          if (m.author.id === Utility.client.user.id) {
-            const assistant = m.embeds[0]?.description;
-            return { content: assistant?.trim(), role: "assistant" };
-          } else {
-            return { content: m.content, role: "user" };
-          }
-        })
-        .filter((response) => response !== null);
+          const role =
+            m.author.id === Utility.client.user.id ? "model" : "user";
+          const text =
+            m.author.id === Utility.client.user.id
+              ? m.embeds[0]?.description || ""
+              : m.content;
+          return { role: role, parts: text.trim() };
+        });
 
       return responses;
     } catch (error) {
@@ -156,4 +119,4 @@ export class MessageCreate extends BaseModule {
   }
 }
 
-export default new MessageCreate();
+export default new threadAi();
